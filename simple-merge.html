@@ -4,7 +4,7 @@
 <head>
     <script src="node_modules/gojs/release/go.js"></script>
     <link href="node_modules/prismjs/themes/prism.css" rel="stylesheet" />
-    <script src="node_modules/prismjs/prism.js"></script>   
+    <script src="node_modules/prismjs/prism.js"></script>
     <script src="node_modules/create-gojs-kit/dist/extensions/DataInspector.js"></script>
     <!-- 引入 DataInspector -->
 </head>
@@ -12,9 +12,18 @@
 <body>
     <div id="allSampleContent" class="p-4 w-full">
         <div id="sample">
-            <div style="width: 100%; display: flex; justify-content: space-between">
-                <div id="myPaletteDiv" style="width: 120px; margin-right: 2px; border: solid 1px black"></div>
-                <div id="myDiagramDiv" style="border: solid 1px black; flex-grow: 1; height: 450px"></div>
+            <div style="width: 100%; display: flex; justify-content: space-between; margin-bottom: 10px;">
+                <button onclick="addNode('Cloud')">Add Cloud</button>
+                <button onclick="addNode('Firewall')">Add Firewall</button>
+                <button onclick="addNode('Switch')">Add Switch</button>
+                <button onclick="addNode('Server')">Add Server</button>
+                <button onclick="addNode('PC')">Add PC</button>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+                <div id="myDiagramDiv"
+                    style="border: solid 1px black; flex-grow: 1; height: 450px; margin-right: 20px;"></div>
+                <div id="myInspectorDiv" class="inspector"
+                    style="width: 250px; border: solid 1px black; height: 450px;"></div>
             </div>
             <p>GoJS can be used to create network configuration diagrams for either monitoring or display. This example
                 shows some editing capabilities: The Diagram <a>CommandHandler.archetypeGroupData</a>
@@ -25,11 +34,6 @@
             <button onclick="load()">Load</button>
             Diagram Model saved in JSON format:
             <pre class="lang-js" style="max-height: 600px"><code id="modelJson"></code></pre>
-        </div>
-
-        <div id="myInspectorDiv" class="inspector"
-            style="width: 200px; border: solid 1px black; height: 450px; margin-left: 20px;">
-            <!-- DataInspector will automatically populate here -->
         </div>
     </div>
 
@@ -71,7 +75,7 @@
                                 fromLinkable: true,
                                 toLinkable: true,
                                 cursor: 'pointer'
-                            }).bind('source', 'type', (t) => `src/static/images/${t.toLowerCase()}.svg`),
+                            }).bind('source', 'type', (t) => `public/images/${t.toLowerCase()}.svg`),
                             new go.Shape({
                                 width: 50,
                                 height: 50,
@@ -92,35 +96,47 @@
             // Group template
             myDiagram.groupTemplate = new go.Group('Vertical', {
                 locationSpot: go.Spot.Center,
+                selectionObjectName: 'PANEL', // 选择操作的范围是内部 Panel
                 padding: 5 // to push the port out
             })
                 .add(
                     new go.TextBlock({
                         alignment: go.Spot.Left,
-                        font: '12px georgia',
-                        editable: true
+                        editable: true, // 文本可编辑
+                        font: 'bold 12pt sans-serif',
+                        stroke: 'gray'
                     }).bindTwoWay('text'),
-                    new go.Panel('Auto')
+                    new go.Panel('Auto', { name: 'PANEL' })
                         .add(
                             new go.Shape('RoundedRectangle', {
-                                strokeDashArray: [2, 6],
-                                stroke: '#333',
-                                fill: 'rgba(0,0,0,0)'
+                                strokeDashArray: [4, 8],
+                                stroke: 'gray',
+                                fill: 'rgba(0,0,0,0)',
+                                strokeWidth: 4,
+                                portId: '',
+                                cursor: 'pointer', // the Shape is the port, not the whole Node
+                                // allow all kinds of links from and to this port
+                                fromLinkable: true,
+                                fromLinkableSelfNode: true,
+                                fromLinkableDuplicates: true,
+                                toLinkable: true,
+                                toLinkableSelfNode: true,
+                                toLinkableDuplicates: true
                             }),
-                            new go.Placeholder({ padding: 5 })
+                            new go.Placeholder({ margin: 10, padding: 5, background: 'transparent' })
                         )
                 );
 
             // Palette setup
-            myPalette = new go.Palette('myPaletteDiv', {
-                nodeTemplateMap: myDiagram.nodeTemplateMap,
-                layout: new go.GridLayout({
-                    cellSize: new go.Size(2, 2),
-                    isViewportSized: true
-                })
-            });
+            // myPalette = new go.Palette('myPaletteDiv', {
+            //     nodeTemplateMap: myDiagram.nodeTemplateMap,
+            //     layout: new go.GridLayout({
+            //         cellSize: new go.Size(2, 2),
+            //         isViewportSized: true
+            //     })
+            // });
 
-            myPalette.model.nodeDataArray = [{ type: 'Cloud' }, { type: 'Firewall' }, { type: 'Switch' }, { type: 'Server' }, { type: 'Router' }, { type: 'PC' }];
+            // myPalette.model.nodeDataArray = [{ type: 'Cloud', text: 'Cloud Node' }, { type: 'Firewall', text: 'Firewall Node' }, { type: 'Switch' , text: 'Switch Node'}, { type: 'Server', text: 'Server Node' }, { type: 'Router', text: 'Router Node' }, { type: 'PC', text: 'PC Node' }];
 
             // Link template
             myDiagram.linkTemplate = new go.Link({
@@ -142,12 +158,31 @@
                 }).bind('text', 'text'));
 
             // Initialize DataInspector
+            // Custom Inspector logic
             myInspector = new Inspector('myInspectorDiv', myDiagram, {
                 properties: {
                     text: {},
                     key: { readOnly: true, show: Inspector.showIfPresent },
-                    color: { type: 'color' },
-                    figure: {}
+                    dropdown1: {
+                        name: "操作系统",
+                        show: (data) => {
+                            console.log('Inspector data:', data.data);
+                            return data.data && data.data.type === 'PC';
+                        },
+                        type: 'select',
+                        choices: ["Ubuntu", "CentOS"] // 转换为字符串数组
+                    },
+                    dropdown2: {
+                        name: "路由",
+                        show: (data) => {
+                            console.log('Inspector data:', data.data);
+                            return data.data && data.data.type === 'Switch';
+                        },
+                        type: 'select',
+                        choices: ["Route-1", "Route-2"] // 转换为字符串数组
+                    },
+                    type: { show: false }, // 隐藏 type 属性
+                    loc: { show: false }, // 隐藏 loc 属性
                 }
             });
 
@@ -178,6 +213,20 @@
             if (myInspector) {
                 myInspector.inspectObject(node); // Inspect the clicked node
             }
+        }
+        function addNode(type) {
+            myDiagram.startTransaction('add node');
+            // 动态计算位置：根据已有节点数量设置
+            const existingNodes = myDiagram.model.nodeDataArray.length;
+            const x = (existingNodes % 5) * 150; // 每行最多放5个，水平间隔150
+            const y = Math.floor(existingNodes / 5) * 150; // 每行的垂直间隔150
+
+            myDiagram.model.addNodeData({
+                type: type,
+                text: `${type} Node`,
+                loc: `${x} ${y}` // 设置位置信息
+            });
+            myDiagram.commitTransaction('add node');
         }
 
         window.addEventListener('DOMContentLoaded', init); // Initialize on page load

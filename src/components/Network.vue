@@ -1,12 +1,62 @@
 <template>
   <div id="networkDiagram">
-    
+    <div id="allSampleContent" class="p-4 w-full">
+      <div id="sample">
+        <div
+          style="
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+          "
+        >
+          <button @click="addNode('Cloud')">Add Cloud</button>
+          <button @click="addNode('Firewall')">Add Firewall</button>
+          <button @click="addNode('Switch')">Add Switch</button>
+          <button @click="addNode('Server')">Add Server</button>
+          <button @click="addNode('PC')">Add PC</button>
+        </div>
+        <div style="display: flex; justify-content: space-between">
+          <div
+            id="myDiagramDiv"
+            style="
+              border: solid 1px black;
+              flex-grow: 1;
+              height: 450px;
+              margin-right: 20px;
+            "
+          ></div>
+          <div
+            id="myInspectorDiv"
+            class="inspector"
+            style="width: 250px; border: solid 1px black; height: 450px"
+          ></div>
+        </div>
+        <p>
+          GoJS can be used to create network configuration diagrams for either
+          monitoring or display. This example shows some editing capabilities:
+          The Diagram
+          <a>CommandHandler.archetypeGroupData</a> is set, allowing you to
+          create new groups by pressing
+          <code style="display: inline-block">Ctrl + G</code> with two or more
+          <a>Node</a>s selected.
+        </p>
+
+        <button @click="save">Save</button>
+        <button @click="load">Load</button>
+        Diagram Model saved in JSON format:
+        <pre
+          class="lang-js"
+          style="max-height: 600px"
+        ><code id="modelJson"></code></pre>
+      </div>
+    </div>
   </div>
 </template>
 
 <script>
-import * as go from 'gojs'
-import { Inspector } from 'create-gojs-kit/dist/extensionsJSM/DataInspector.js';
+import go from "gojs";
+import { Inspector } from "create-gojs-kit/dist/extensionsJSM/DataInspector.js";
 
 export default {
   name: "NetworkDiagram",
@@ -21,10 +71,14 @@ export default {
   },
   methods: {
     init() {
+      console.log("init");
       this.myDiagram = new go.Diagram("myDiagramDiv", {
         "commandHandler.archetypeGroupData": { isGroup: true, text: "Subnet" },
         "undoManager.isEnabled": true,
       });
+
+      // 初始化空模型
+      this.myDiagram.model = new go.GraphLinksModel();
 
       // 设置布局为 GridLayout，用于自动对齐
       this.myDiagram.layout = new go.GridLayout({
@@ -51,11 +105,7 @@ export default {
               fromLinkable: true,
               toLinkable: true,
               cursor: "pointer",
-            }).bind(
-              "source",
-              "type",
-              (t) => `src/static/images/${t.toLowerCase()}.svg`
-            ),
+            }).bind("source", "type", (t) => `/images/${t.toLowerCase()}.svg`),
             new go.Shape({
               width: 50,
               height: 50,
@@ -180,18 +230,27 @@ export default {
       }
     },
     addNode(type) {
+      console.log("Adding node:", type);
+      if (!this.myDiagram) {
+        console.error("Diagram is not initialized.");
+        return;
+      }
       this.myDiagram.startTransaction("add node");
       const existingNodes = this.myDiagram.model.nodeDataArray.length;
-      const x = (existingNodes % 5) * 150; // 每行最多放5个，水平间隔150
-      const y = Math.floor(existingNodes / 5) * 150; // 每行的垂直间隔150
+      const x = (existingNodes % 5) * 150;
+      const y = Math.floor(existingNodes / 5) * 150;
 
       this.myDiagram.model.addNodeData({
         type: type,
         text: `${type} Node`,
-        loc: `${x} ${y}`, // 设置位置信息
+        loc: `${x} ${y}`,
       });
       this.myDiagram.commitTransaction("add node");
     },
   },
 };
 </script>
+
+<style scoped>
+/* 将样式写入这里 */
+</style>
