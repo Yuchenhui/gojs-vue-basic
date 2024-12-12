@@ -3,16 +3,18 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dev": "node befor-build.mjs & vite --mode env",
-    "build": "vite build",
-    "preview": "vite preview"
+    "dev": "node before-build.mjs && vite --mode env",
+    "build": "node before-build.mjs && vite build",
+    "preview": "node before-build.mjs && vite preview"
   },
   "dependencies": {
-    "gojs": "^3.0.14",
-    "vue": "^3.5.12"
+    "create-gojs-kit": "^3.0.16",
+    "gojs": "^3.0.16",
+    "prismjs": "^1.29.0",
+    "vue": "^3.5.13"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^5.2.0",
+    "@vitejs/plugin-vue": "^5.2.1",
     "vite": "^5.4.11"
   }
 }

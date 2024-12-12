@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script src="node_modules/gojs/release/go.js"></script>
+    <link href="node_modules/prismjs/themes/prism.css" rel="stylesheet" />
+    <script src="node_modules/prismjs/prism.js"></script>   
+    <script src="node_modules/create-gojs-kit/dist/extensions/DataInspector.js"></script>
+    <!-- 引入 DataInspector -->
+</head>
+
+<body>
+    <div id="allSampleContent" class="p-4 w-full">
+        <div id="sample">
+            <div style="width: 100%; display: flex; justify-content: space-between">
+                <div id="myPaletteDiv" style="width: 120px; margin-right: 2px; border: solid 1px black"></div>
+                <div id="myDiagramDiv" style="border: solid 1px black; flex-grow: 1; height: 450px"></div>
+            </div>
+            <p>GoJS can be used to create network configuration diagrams for either monitoring or display. This example
+                shows some editing capabilities: The Diagram <a>CommandHandler.archetypeGroupData</a>
+                is set, allowing you to create new groups by pressing <code
+                    style="display: inline-block;">Ctrl + G</code> with two or more <a>Node</a>s selected.</p>
+
+            <button onclick="save()">Save</button>
+            <button onclick="load()">Load</button>
+            Diagram Model saved in JSON format:
+            <pre class="lang-js" style="max-height: 600px"><code id="modelJson"></code></pre>
+        </div>
+
+        <div id="myInspectorDiv" class="inspector"
+            style="width: 200px; border: solid 1px black; height: 450px; margin-left: 20px;">
+            <!-- DataInspector will automatically populate here -->
+        </div>
+    </div>
+
+    <script id="code">
+        var myDiagram;
+        var myPalette;
+        var myInspector;
+
+        function init() {
+            // Initialize Diagram
+            myDiagram = new go.Diagram('myDiagramDiv', {
+                'commandHandler.archetypeGroupData': { isGroup: true, text: 'Subnet' },
+                'undoManager.isEnabled': true
+            });
+
+            // 设置布局为 GridLayout，用于自动对齐
+            myDiagram.layout = new go.GridLayout({
+                wrappingColumn: 5, // 每行最多 5 个节点
+                alignment: go.GridLayout.Position, // 节点按位置对齐
+                cellSize: new go.Size(120, 120), // 网格单元格大小
+                spacing: new go.Size(20, 20), // 节点间距
+                isOngoing: false // 禁止每次模型更新时触发布局
+            });
+
+            myDiagram.nodeTemplate = new go.Node('Vertical', {
+                locationSpot: go.Spot.Center,
+                locationObjectName: 'BODY',
+                selectionObjectName: 'BODY'
+            })
+                .bindTwoWay('location', 'loc', go.Point.parse, go.Point.stringify)
+                .add(
+                    new go.Panel('Auto', { name: 'BODY' }) // 可拖拽区域    
+                        .add(
+                            new go.Picture({
+                                name: 'BODY',
+                                width: 85,
+                                height: 85,
+                                portId: '',
+                                fromLinkable: true,
+                                toLinkable: true,
+                                cursor: 'pointer'
+                            }).bind('source', 'type', (t) => `src/static/images/${t.toLowerCase()}.svg`),
+                            new go.Shape({
+                                width: 50,
+                                height: 50,
+                                fill: 'transparent',
+                                strokeWidth: 0
+                            })
+                        ))
+                .add(
+                    new go.TextBlock({
+                        margin: new go.Margin(5, 0, 0, 0), // 与图片的距离
+                        editable: true, // 文本可编辑
+                        font: 'bold 12pt sans-serif',
+                        stroke: 'gray',
+                        textAlign: 'center'
+                    }).bind('text', 'text') // 绑定文本到模型
+                );
+
+            // Group template
+            myDiagram.groupTemplate = new go.Group('Vertical', {
+                locationSpot: go.Spot.Center,
+                padding: 5 // to push the port out
+            })
+                .add(
+                    new go.TextBlock({
+                        alignment: go.Spot.Left,
+                        font: '12px georgia',
+                        editable: true
+                    }).bindTwoWay('text'),
+                    new go.Panel('Auto')
+                        .add(
+                            new go.Shape('RoundedRectangle', {
+                                strokeDashArray: [2, 6],
+                                stroke: '#333',
+                                fill: 'rgba(0,0,0,0)'
+                            }),
+                            new go.Placeholder({ padding: 5 })
+                        )
+                );
+
+            // Palette setup
+            myPalette = new go.Palette('myPaletteDiv', {
+                nodeTemplateMap: myDiagram.nodeTemplateMap,
+                layout: new go.GridLayout({
+                    cellSize: new go.Size(2, 2),
+                    isViewportSized: true
+                })
+            });
+
+            myPalette.model.nodeDataArray = [{ type: 'Cloud' }, { type: 'Firewall' }, { type: 'Switch' }, { type: 'Server' }, { type: 'Router' }, { type: 'PC' }];
+
+            // Link template
+            myDiagram.linkTemplate = new go.Link({
+                curve: go.Link.Bezier,
+                fromSpot: go.Spot.AllSides,
+                toSpot: go.Spot.AllSides,
+                relinkableFrom: true,
+                relinkableTo: true
+            })
+                .add(new go.Shape({ strokeWidth: 2.5, stroke: 'gray' }))
+                .add(new go.Shape({ strokeWidth: 0, fill: 'gray', scale: 1.5, fromArrow: 'circle' }))
+                .add(new go.Shape({ strokeWidth: 0, fill: 'gray', scale: 1.5, toArrow: 'Standard' }))
+                .add(new go.TextBlock({
+                    editable: true, // 允许编辑文本
+                    textAlign: 'center', // 居中对齐
+                    font: 'bold 12pt sans-serif',
+                    stroke: 'gray',
+                    segmentOffset: new go.Point(0, 15), // 设置文本相对于连线的偏移位置
+                }).bind('text', 'text'));
+
+            // Initialize DataInspector
+            myInspector = new Inspector('myInspectorDiv', myDiagram, {
+                properties: {
+                    text: {},
+                    key: { readOnly: true, show: Inspector.showIfPresent },
+                    color: { type: 'color' },
+                    figure: {}
+                }
+            });
+
+            myDiagram.grid.visible = true; // 显示网格
+            myDiagram.toolManager.draggingTool.isGridSnapEnabled = true;
+            load(); // Load the saved model on page load
+        }
+
+        // Save function: Save the diagram model in JSON format and display it in the code block
+        function save() {
+            const json = document.getElementById('modelJson');
+            json.innerHTML = myDiagram.model.toJson(); // Save model to the code block
+            myDiagram.isModified = false; // Reset modification status
+            if (window.Prism) window.Prism.highlightAll(); // Highlight the code for better visibility
+        }
+
+        // Load function: Load the diagram model from the code block
+        function load() {
+            const json = document.getElementById('modelJson');
+            if (json.textContent.trim()) {
+                myDiagram.model = go.Model.fromJson(json.textContent); // Load from saved JSON
+            }
+        }
+
+        // Node click handler (used by DataInspector)
+        function nodeClick(e, obj) {
+            var node = obj.part;
+            if (myInspector) {
+                myInspector.inspectObject(node); // Inspect the clicked node
+            }
+        }
+
+        window.addEventListener('DOMContentLoaded', init); // Initialize on page load
+    </script>
+</body>
+
+</html>

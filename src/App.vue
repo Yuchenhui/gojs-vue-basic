@@ -1,7 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import Diagram from './components/Diagram.vue'
-
+import NetworkDiagram from './components/NetworkDiagram.vue'
 const nda = [
   { key: 1, text: "Alpha", color: "lightblue" },
   { key: 2, text: "Beta", color: "orange" },
@@ -27,5 +27,6 @@ const moves = ref(0);
       @selection-moved="moves++"
       />
     #moves: {{ moves }}
+    <NetworkDiagram />
   </main>
 </template>
