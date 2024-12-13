@@ -142,26 +142,26 @@ export default {
           }).bind("text", "text")
         );
 
-      this.myInspector = new Inspector("myInspectorDiv", this.myDiagram, {
-        properties: {
-          text: {},
-          key: { readOnly: true, show: Inspector.showIfPresent },
-          dropdown1: {
-            name: "操作系统",
-            show: (data) => data.type === "PC",
-            type: "select",
-            choices: ["Ubuntu", "CentOS"],
-          },
-          dropdown2: {
-            name: "路由",
-            show: (data) => data.type === "Switch",
-            type: "select",
-            choices: ["Route-1", "Route-2"],
-          },
-          type: { show: false },
-          loc: { show: false },
-        },
-      });
+      // this.myInspector = new Inspector("myInspectorDiv", this.myDiagram, {
+      //   properties: {
+      //     text: {},
+      //     key: { readOnly: true, show: Inspector.showIfPresent },
+      //     dropdown1: {
+      //       name: "操作系统",
+      //       show: (data) => data.type === "PC",
+      //       type: "select",
+      //       choices: ["Ubuntu", "CentOS"],
+      //     },
+      //     dropdown2: {
+      //       name: "路由",
+      //       show: (data) => data.type === "Switch",
+      //       type: "select",
+      //       choices: ["Route-1", "Route-2"],
+      //     },
+      //     type: { show: false },
+      //     loc: { show: false },
+      //   },
+      // });
 
       this.myDiagram.grid.visible = true;
       this.myDiagram.toolManager.draggingTool.isGridSnapEnabled = true;
