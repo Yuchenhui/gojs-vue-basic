@@ -246,7 +246,7 @@ function save() {
   if (!myDiagram) return;
   const json = document.getElementById("modelJson");
   if (json) {
-    json.textContent = myDiagram.model.toJson();
+    jsonForm.json = myDiagram.model.toJson();
   }
   myDiagram.isModified = false;
 }
@@ -254,9 +254,9 @@ function save() {
 // 加载模型
 function load() {
   if (!myDiagram) return;
-  const json = document.getElementById("modelJson");
-  if (json && json.textContent && json.textContent.trim()) {
-    myDiagram.model = go.Model.fromJson(json.textContent);
+  const json = jsonForm.json;
+  if (json) {
+    myDiagram.model = go.Model.fromJson(json);
   }
 }
 
@@ -279,6 +279,10 @@ const formInline = reactive({
   loc: "",
   from: "",
   to: "",
+});
+
+const jsonForm = reactive({
+  json:""
 });
 
 const clearForm = () => {
@@ -416,9 +420,10 @@ const updateNode = () => {
           </el-main>
           <el-footer>
             <p>Diagram Model saved in JSON format:</p>
-            <pre class="lang-js" style="max-height: 600px">
-          <code id="modelJson"></code>
-        </pre>
+            <el-form><el-form-item>
+            <el-input id="modelJson" v-model="jsonForm.json" type="textarea" rows="10" />
+          </el-form-item></el-form>
+
           </el-footer>
         </el-container>
       </el-container>
