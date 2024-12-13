@@ -333,8 +333,6 @@ const updateNode = () => {
           text: formInline.name, // 更新文字
         });
       }
-
-
       console.log(
         "Link updated: Removed and re-added with new data:",
         linkData
