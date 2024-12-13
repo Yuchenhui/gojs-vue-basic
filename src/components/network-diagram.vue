@@ -28,13 +28,13 @@ onMounted(() => {
   myDiagram = $(go.Diagram, diagramDiv.value, {
     "undoManager.isEnabled": true,
     "commandHandler.archetypeGroupData": { isGroup: true, text: "Subnet" },
-    layout: $(go.GridLayout, {
-      wrappingColumn: 5,
-      alignment: go.GridAlignment.Position,
-      cellSize: new go.Size(120, 120),
-      spacing: new go.Size(20, 20),
-      isOngoing: false,
-    }),
+    // layout: $(go.GridLayout, {
+    //   wrappingColumn: 5,
+    //   alignment: go.GridAlignment.Position,
+    //   cellSize: new go.Size(120, 120),
+    //   spacing: new go.Size(20, 20),
+    //   isOngoing: false,
+    // }),
   });
 
   // 设置节点模板
@@ -180,23 +180,39 @@ onMounted(() => {
 
   // 加载初始模型
   load();
-
+  myDiagram.addDiagramListener("BackgroundSingleClicked", () => {
+    clearForm(); // 执行清空表单
+  });
   myDiagram.addDiagramListener("ObjectSingleClicked", (e: go.DiagramEvent) => {
     const part = e.subject.part;
 
     if (!part || !part.data) {
       console.warn("Clicked on an empty part or background.");
+
+      formInline.visible = false; // 隐藏表单
       return;
     }
 
+    formInline.visible = true; // 显示表单
+
     // 根据类型判断并处理不同对象
     if (part instanceof go.Node) {
-      console.log("Node clicked:", part.data);
-      formInline.key = part.data.key || "";
-      formInline.type = part.data.type || "";
-      formInline.name = part.data.text || "";
-      formInline.loc = part.data.loc || "";
-      formInline.image = part.data.image || "";
+      if (part.data.isGroup) {
+        console.log("Group clicked:", part.data);
+        formInline.key = part.data.key || "";
+        formInline.type = "Group";
+        formInline.name = part.data.text || ""; // 主要更新组的文字
+        formInline.loc = part.data.loc || ""; // 如果组有位置
+      }
+      else {
+        console.log("Node clicked:", part.data);
+        formInline.key = part.data.key || "";
+        formInline.type = part.data.type || "";
+        formInline.name = part.data.text || "";
+        formInline.loc = part.data.loc || "";
+        formInline.image = part.data.image || "";
+      }
+
     } else if (part instanceof go.Link) {
       console.log("Link clicked:", part.data);
       formInline.key = part.data.key || ""; // 如果链接有唯一 key
@@ -204,21 +220,12 @@ onMounted(() => {
       formInline.name = part.data.text || ""; // 主要更新链接上的文字
       formInline.from = part.data.from || ""; // 主要更新链接上的文字
       formInline.to = part.data.to || ""; // 主要更新链接上的文字
-    } else if (part instanceof go.Group) {
-      console.log("Group clicked:", part.data);
-      formInline.key = part.data.key || "";
-      formInline.type = "Group";
-      formInline.name = part.data.text || ""; // 主要更新组的文字
-      formInline.loc = part.data.loc || ""; // 如果组有位置
     } else {
       console.warn("Unknown part type clicked:", part);
     }
 
     console.log("Updated formInline:", formInline);
-    // 聚焦到 name 输入框
-    if (nameInput.value) {
-      nameInput.value.focus();
-    }
+
   });
 });
 
@@ -279,10 +286,13 @@ const formInline = reactive({
   loc: "",
   from: "",
   to: "",
+  name: "",
+  text: "",
+  visible: false, // 控制表单是否显示
 });
 
 const jsonForm = reactive({
-  json:""
+  json: "",
 });
 
 const clearForm = () => {
@@ -293,6 +303,7 @@ const clearForm = () => {
   formInline.from = "";
   formInline.to = "";
   formInline.name = "";
+  formInline.visible = false;
 };
 
 const updateNode = () => {
@@ -303,7 +314,7 @@ const updateNode = () => {
 
   const key = formInline.key;
   const type = formInline.type;
-
+  console.log("Updating object:", formInline);
   myDiagram.startTransaction("update object");
 
   if (type === "Link") {
@@ -312,14 +323,17 @@ const updateNode = () => {
     if (selectedLink instanceof go.Link && selectedLink.data) {
       const linkData = selectedLink.data;
 
-      // 移除链接
-      myDiagram.model.removeLinkData(linkData);
+      if (myDiagram.model instanceof go.GraphLinksModel) {
+        // 移除链接
+        myDiagram.model.removeLinkData(linkData);
 
-      // 新增链接，更新文字等信息
-      myDiagram.model.addLinkData({
-        ...linkData,
-        text: formInline.name, // 更新文字
-      });
+        // 新增链接，更新文字等信息
+        myDiagram.model.addLinkData({
+          ...linkData,
+          text: formInline.name, // 更新文字
+        });
+      }
+
 
       console.log(
         "Link updated: Removed and re-added with new data:",
@@ -335,7 +349,7 @@ const updateNode = () => {
     }
     // 更新组数据
     const group = myDiagram.findNodeForKey(key);
-    if (group && group.data && group.isGroup) {
+    if (group && group.data) {
       myDiagram.model.setDataProperty(group.data, "text", formInline.name);
       console.log("Group updated:", group.data);
     } else {
@@ -371,7 +385,7 @@ const updateNode = () => {
       <el-container>
         <el-aside width="250px">
           <div class="control-panel">
-            <el-form :inline="false" :model="formInline" class="demo-form-inline">
+            <el-form :inline="false" :model="formInline" class="demo-form-inline" v-if="formInline.visible">
               <el-form-item v-if="false" label="Key">
                 <el-input v-model="formInline.key" disabled />
               </el-form-item>
@@ -385,8 +399,7 @@ const updateNode = () => {
                 <el-input v-model="formInline.to" disabled />
               </el-form-item>
               <el-form-item label="Name">
-                <el-input v-model="formInline.name" placeholder="Please enter name" ref="nameInput" @blur="updateNode"
-                  clearable />
+                <el-input v-model="formInline.name" placeholder="Please enter name" ref="nameInput" clearable />
               </el-form-item>
               <el-form-item label="Image list" v-if="formInline.type === 'PC'">
                 <el-select v-model="formInline.image" placeholder="Select image" clearable>
@@ -421,9 +434,8 @@ const updateNode = () => {
           <el-footer>
             <p>Diagram Model saved in JSON format:</p>
             <el-form><el-form-item>
-            <el-input id="modelJson" v-model="jsonForm.json" type="textarea" rows="10" />
-          </el-form-item></el-form>
-
+                <el-input id="modelJson" v-model="jsonForm.json" type="textarea"
+                  :autosize="{ minRows: 2, maxRows: 4 }" /> </el-form-item></el-form>
           </el-footer>
         </el-container>
       </el-container>
@@ -445,7 +457,7 @@ const updateNode = () => {
 }
 
 .ml-4 {
-  margin-left: 4rem;
+  margin-left: 2rem;
 }
 
 .diagram-container {
