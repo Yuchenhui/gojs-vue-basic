@@ -1,48 +1,45 @@
 <script setup>
-import { onMounted, ref } from 'vue'
-import * as go from 'gojs'
+import { onMounted, ref } from 'vue';
+import * as go from 'gojs';
 import { Inspector } from "create-gojs-kit/dist/extensionsJSM/DataInspector.js";
 
-const props = defineProps({ nodeDataArray: Array, linkDataArray: Array })
-const emitter = defineEmits([
-  "ExternalObjectsDropped",
-  "SelectionMoved"
-])
+let myDiagram = null;
+let myInspector = null;
 
-const diagram = ref(null)
-const inspectorDiv = ref(null)
+const props = defineProps({ nodeDataArray: Array, linkDataArray: Array });
+const emitter = defineEmits(["ExternalObjectsDropped", "SelectionMoved"]);
+
+const diagramDiv = ref(null);
+const inspectorDiv = ref(null);
 
 onMounted(function () {
-
   const $ = go.GraphObject.make;
 
-  const myDiagram =
-    new go.Diagram(diagram.value,
-      {
-        "undoManager.isEnabled": true,
-        "commandHandler.archetypeGroupData": { isGroup: true, text: "Subnet" },
-        layout: $(go.GridLayout, {
-          wrappingColumn: 5,
-          alignment: go.GridLayout.Position,
-          cellSize: new go.Size(120, 120),
-          spacing: new go.Size(20, 20),
-        }),
-      });
+  // 初始化 Diagram
+  myDiagram = new go.Diagram(diagramDiv.value, {
+    "undoManager.isEnabled": true,
+    "commandHandler.archetypeGroupData": { isGroup: true, text: "Subnet" },
+    layout: $(go.GridLayout, {
+      wrappingColumn: 5,
+      alignment: go.GridLayout.Position,
+      cellSize: new go.Size(120, 120),
+      spacing: new go.Size(20, 20),
+    }),
+  });
 
-  myDiagram.addDiagramListener("ExternalObjectsDropped", e => emitter("ExternalObjectsDropped", e))
-  myDiagram.addDiagramListener("SelectionMoved", e => emitter("SelectionMoved", e))
+  // 添加监听器
+  myDiagram.addDiagramListener("ExternalObjectsDropped", (e) => emitter("ExternalObjectsDropped", e));
+  myDiagram.addDiagramListener("SelectionMoved", (e) => emitter("SelectionMoved", e));
 
-  myDiagram.nodeTemplate =
-    $(go.Node, "Auto",
-      $(go.Shape,
-        { fill: "white" },
-        new go.Binding("fill", "color")),
-      $(go.TextBlock,
-        { margin: 8 },
-        new go.Binding("text"))
-    );
+  // 配置节点模板
+  myDiagram.nodeTemplate = $(
+    go.Node,
+    "Auto",
+    $(go.Shape, { fill: "white" }, new go.Binding("fill", "color")),
+    $(go.TextBlock, { margin: 8 }, new go.Binding("text"))
+  );
 
-  // 设置组模板
+  // 配置组模板
   myDiagram.groupTemplate = $(
     go.Group,
     "Vertical",
@@ -51,20 +48,13 @@ onMounted(function () {
       selectionObjectName: "PANEL",
       padding: 5,
     },
-    $(
-      go.TextBlock,
-      {
-        alignment: go.Spot.Left,
-        editable: true,
-        font: "bold 12pt sans-serif",
-        stroke: "gray",
-      },
-      new go.Binding("text").makeTwoWay()
-    ),
-    $(
-      go.Panel,
-      "Auto",
-      { name: "PANEL" },
+    $(go.TextBlock, {
+      alignment: go.Spot.Left,
+      editable: true,
+      font: "bold 12pt sans-serif",
+      stroke: "gray",
+    }, new go.Binding("text").makeTwoWay()),
+    $(go.Panel, "Auto", { name: "PANEL" },
       $(go.Shape, "RoundedRectangle", {
         strokeDashArray: [4, 8],
         stroke: "gray",
@@ -73,51 +63,24 @@ onMounted(function () {
         portId: "",
         cursor: "pointer",
         fromLinkable: true,
-        fromLinkableSelfNode: true,
-        fromLinkableDuplicates: true,
         toLinkable: true,
-        toLinkableSelfNode: true,
-        toLinkableDuplicates: true,
       }),
       $(go.Placeholder, { margin: 10, padding: 5, background: "transparent" })
     )
   );
 
+  // 配置连线模板
   myDiagram.linkTemplate = $(
     go.Link,
-    {
-      curve: go.Link.Bezier,
-      fromSpot: go.Spot.AllSides,
-      toSpot: go.Spot.AllSides,
-      relinkableFrom: true,
-      relinkableTo: true,
-    },
+    { curve: go.Link.Bezier, fromSpot: go.Spot.AllSides, toSpot: go.Spot.AllSides },
     $(go.Shape, { strokeWidth: 2.5, stroke: "gray" }),
-    $(go.Shape, {
-      strokeWidth: 0,
-      fill: "gray",
-      scale: 1,
-      fromArrow: "circle",
-    }),
-    $(go.Shape, {
-      strokeWidth: 0,
-      fill: "gray",
-      scale: 1,
-      toArrow: "Standard",
-    }),
-    $(
-      go.TextBlock,
-      {
-        editable: true,
-        textAlign: "center",
-        font: "bold 12pt sans-serif",
-        stroke: "gray",
-        segmentOffset: new go.Point(0, 15),
-      },
-      new go.Binding("text", "text")
-    )
+    $(go.Shape, { strokeWidth: 0, fill: "gray", scale: 1, fromArrow: "circle" }),
+    $(go.Shape, { strokeWidth: 0, fill: "gray", scale: 1, toArrow: "Standard" }),
+    $(go.TextBlock, { editable: true, textAlign: "center", font: "bold 12pt sans-serif", stroke: "gray" }, new go.Binding("text", "text"))
   );
-  const myInspector = new Inspector(inspectorDiv.value.id, myDiagram, {
+
+  // 初始化 Inspector
+  myInspector = new Inspector(inspectorDiv.value.id, myDiagram, {
     properties: {
       text: {},
       key: { readOnly: true, show: Inspector.showIfPresent },
@@ -138,34 +101,52 @@ onMounted(function () {
     },
   });
 
+  // 初始化数据
   const nda = props.nodeDataArray;
   const lda = props.linkDataArray;
   myDiagram.model = new go.GraphLinksModel(nda, lda);
+
+  // 配置网格
   myDiagram.grid.visible = true;
   myDiagram.toolManager.draggingTool.isGridSnapEnabled = true;
-
 });
 
+// 示例函数：在组件的其他地方访问 myDiagram 和 myInspector
+function addNode(type) {
+  if (!myDiagram.value) return;
+
+  myDiagram.value.startTransaction("add node");
+  const existingNodes = myDiagram.value.model.nodeDataArray.length;
+  const x = (existingNodes % 5) * 150;
+  const y = Math.floor(existingNodes / 5) * 150;
+
+  myDiagram.value.model.addNodeData({
+    type: type,
+    text: `${type} Node`,
+    loc: `${x} ${y}`,
+  });
+  myDiagram.value.commitTransaction("add node");
+}
 </script>
 
 <template>
-  <div ref="diagram" class="goDiagram"></div>
-  <!-- Inspector 区域 -->
-  <div id="inspectorDivId" ref="inspectorDiv" class="inspector"></div>
+  <div>
+    <div ref="diagramDiv" class="goDiagram"></div>
+    <div id="inspectorDivId" ref="inspectorDiv" class="inspector"></div>
+    <button @click="addNode('Cloud')">Add Cloud</button>
+  </div>
 </template>
 
 <style scoped>
 .goDiagram {
-  width: 400px;
+  width: 600px;
   height: 400px;
   border: solid black 1px;
-  float: left;
 }
 
 .inspector {
-  width: 400px;
+  width: 300px;
   height: 400px;
   border: solid black 1px;
-  float: left;
 }
 </style>

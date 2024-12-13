@@ -5,7 +5,8 @@ import { Inspector } from "create-gojs-kit/dist/extensionsJSM/DataInspector.js";
 
 const diagramDiv = ref(null);
 const inspectorDiv = ref(null);
-const myDiagram = ref(null);
+
+let myDiagram = null;
 
 onMounted(() => {
   console.log("init.network-lite");
@@ -18,19 +19,20 @@ onMounted(() => {
   const $ = go.GraphObject.make;
 
   // 初始化 Diagram
-  myDiagram.value = $(go.Diagram, diagramDiv.value, {
+  myDiagram = $(go.Diagram, diagramDiv.value, {
     "undoManager.isEnabled": true,
     "commandHandler.archetypeGroupData": { isGroup: true, text: "Subnet" },
     layout: $(go.GridLayout, {
       wrappingColumn: 5,
-      alignment: go.GridLayout.Position,
+      alignment: go.GridAlignment.Position,
       cellSize: new go.Size(120, 120),
       spacing: new go.Size(20, 20),
+      isOngoing: false,
     }),
   });
 
   // 设置节点模板
-  myDiagram.value.nodeTemplate = $(
+  myDiagram.nodeTemplate = $(
     go.Node,
     "Vertical",
     {
@@ -38,6 +40,7 @@ onMounted(() => {
       locationObjectName: "BODY",
       selectionObjectName: "BODY",
     },
+    new go.Binding("location", "loc", go.Point.parse).makeTwoWay(go.Point.stringify),
     $(
       go.Panel,
       "Auto",
@@ -80,7 +83,7 @@ onMounted(() => {
   );
 
   // 设置组模板
-  myDiagram.value.groupTemplate = $(
+  myDiagram.groupTemplate = $(
     go.Group,
     "Vertical",
     {
@@ -121,7 +124,7 @@ onMounted(() => {
   );
 
   // 设置链接模板
-  myDiagram.value.linkTemplate = $(
+  myDiagram.linkTemplate = $(
     go.Link,
     {
       curve: go.Link.Bezier,
@@ -158,32 +161,32 @@ onMounted(() => {
 
   // console.log("init.network-lite")
 
-  // // 初始化 Inspector
-  // const myInspector = new Inspector(inspectorDiv.value, myDiagram.value, {
-  //   properties: {
-  //     text: {},
-  //     key: { readOnly: true, show: Inspector.showIfPresent },
-  //     dropdown1: {
-  //       name: "操作系统",
-  //       show: (data) => data.type === "PC",
-  //       type: "select",
-  //       choices: ["Ubuntu", "CentOS"],
-  //     },
-  //     dropdown2: {
-  //       name: "路由",
-  //       show: (data) => data.type === "Switch",
-  //       type: "select",
-  //       choices: ["Route-1", "Route-2"],
-  //     },
-  //     type: { show: false },
-  //     loc: { show: false },
-  //   },
-  // });
+  // 初始化 Inspector
+  const myInspector = new Inspector(inspectorDiv.value.id, myDiagram, {
+    properties: {
+      text: {},
+      key: { readOnly: true, show: Inspector.showIfPresent },
+      dropdown1: {
+        name: "操作系统",
+        show: (data) => data.type === "PC",
+        type: "select",
+        choices: ["Ubuntu", "CentOS"],
+      },
+      dropdown2: {
+        name: "路由",
+        show: (data) => data.type === "Switch",
+        type: "select",
+        choices: ["Route-1", "Route-2"],
+      },
+      type: { show: false },
+      loc: { show: false },
+    },
+  });
 
-  console.log(myDiagram);
+
   // 显示网格与对齐
-  myDiagram.value.grid.visible = true;
-  myDiagram.value.toolManager.draggingTool.isGridSnapEnabled = true;
+  myDiagram.grid.visible = true;
+  myDiagram.toolManager.draggingTool.isGridSnapEnabled = true;
   
   // 加载初始模型
   load();
@@ -192,35 +195,35 @@ onMounted(() => {
 // 添加节点方法
 function addNode(type) {
   console.log("Adding node:", type);
-  if (!myDiagram.value) {
+  if (!myDiagram) {
     console.error("Diagram is not initialized.");
     return;
   }
-  console.log(myDiagram.value.model)
-  myDiagram.value.startTransaction("add node");
-  const existingNodes = myDiagram.value.model.nodeDataArray.length;
+  console.log(myDiagram.model)
+  myDiagram.startTransaction("add node");
+  const existingNodes = myDiagram.model.nodeDataArray.length;
   const x = (existingNodes % 5) * 150;
   const y = Math.floor(existingNodes / 5) * 150;
-  myDiagram.value.model.addNodeData({
+  myDiagram.model.addNodeData({
     type,
     text: `${type} Node`,
     loc: `${x} ${y}`,
   });
-  myDiagram.value.commitTransaction("add node");
+  myDiagram.commitTransaction("add node");
 }
 
 // 保存模型
 function save() {
   const json = document.getElementById("modelJson");
-  json.innerHTML = myDiagram.value.model.toJson();
-  myDiagram.value.isModified = false;
+  json.innerHTML = myDiagram.model.toJson();
+  myDiagram.isModified = false;
 }
 
 // 加载模型
 function load() {
   const json = document.getElementById("modelJson");
   if (json.textContent.trim()) {
-    myDiagram.value.model = go.Model.fromJson(json.textContent);
+    myDiagram.model = go.Model.fromJson(json.textContent);
   }
 }
 </script>
@@ -260,6 +263,7 @@ function load() {
 
           <!-- Inspector 区域 -->
           <div
+            id="inspectorDivId"
             ref="inspectorDiv"
             class="inspector"
             style="width: 250px; border: solid 1px black; height: 450px"

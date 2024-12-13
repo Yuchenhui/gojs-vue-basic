@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-import Diagram from './components/Diagram.vue'
+import Diagram from './components/NetworkLite.vue'
 
 const nda = [
   { key: 1, text: "Alpha", color: "lightblue" },
