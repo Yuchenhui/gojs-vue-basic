@@ -1,20 +1,23 @@
 <script setup lang="ts">
-import { ref, onMounted ,reactive } from "vue";
+import { ref, onMounted, reactive } from "vue";
 import * as go from "gojs";
-import { Inspector } from "create-gojs-kit/dist/extensionsJSM/DataInspector.js";
 import {
-  Cpu,MostlyCloudy,Switch,Aim,Monitor
-} from '@element-plus/icons-vue'
+  Cpu,
+  MostlyCloudy,
+  Switch,
+  Aim,
+  Monitor,
+  RefreshRight,
+  ZoomOut,
+  ZoomIn,
+} from "@element-plus/icons-vue";
 
 const diagramDiv = ref<HTMLDivElement | null>(null);
-const inspectorDiv = ref<HTMLDivElement | null>(null);
-
+const nameInput = ref(null); // 用于控制 name 的输入框焦点
 let myDiagram: go.Diagram | null = null;
 
 onMounted(() => {
-  console.log("init.network-lite");
-
-  if (!diagramDiv.value || !inspectorDiv.value) {
+  if (!diagramDiv.value) {
     console.error("Diagram or Inspector container is missing.");
     return;
   }
@@ -43,7 +46,9 @@ onMounted(() => {
       locationObjectName: "BODY",
       selectionObjectName: "BODY",
     },
-    new go.Binding("location", "loc", go.Point.parse).makeTwoWay(go.Point.stringify),
+    new go.Binding("location", "loc", go.Point.parse).makeTwoWay(
+      go.Point.stringify
+    ),
     $(
       go.Panel,
       "Auto",
@@ -59,7 +64,11 @@ onMounted(() => {
           toLinkable: true,
           cursor: "pointer",
         },
-        new go.Binding("source", "type", (t: string) => `/images/${t.toLowerCase()}.svg`)
+        new go.Binding(
+          "source",
+          "type",
+          (t: string) => `/images/${t.toLowerCase()}.svg`
+        )
       ),
       $(go.Shape, {
         width: 50,
@@ -158,40 +167,58 @@ onMounted(() => {
     )
   );
 
-  // 初始化 Inspector
-  new Inspector(inspectorDiv.value.id, myDiagram, {
-    properties: {
-      text: {
-        name: "名称",
-      },
-      key: { readOnly: true, show: false },
-      dropdown1: {
-        name: "操作系统",
-        show: (data) => data.data.type === "PC",
-        type: "select",
-        choices: ["Ubuntu", "CentOS"],
-      },
-      dropdown2: {
-        name: "路由",
-        show: (data) => data.data.type === "Switch",
-        type: "select",
-        choices: ["Route-1", "Route-2"],
-      },
-      type: { show: false },
-      loc: { show: false },
-    },
-  });
-
   // 显示网格与对齐
   myDiagram.grid.visible = true;
   myDiagram.toolManager.draggingTool.isGridSnapEnabled = true;
+  myDiagram.model.makeUniqueKeyFunction = (model) => {
+    let key = 1; // 从 0 开始
+    while (model.findNodeDataForKey(key) !== null) {
+      key++; // 避免重复 key
+    }
+    return key;
+  };
 
   // 加载初始模型
   load();
 
   myDiagram.addDiagramListener("ObjectSingleClicked", (e: go.DiagramEvent) => {
     const part = e.subject.part;
-    console.log("ObjectSingleClicked", e, part?.data);
+
+    if (!part || !part.data) {
+      console.warn("Clicked on an empty part or background.");
+      return;
+    }
+
+    // 根据类型判断并处理不同对象
+    if (part instanceof go.Node) {
+      console.log("Node clicked:", part.data);
+      formInline.key = part.data.key || "";
+      formInline.type = part.data.type || "";
+      formInline.name = part.data.text || "";
+      formInline.loc = part.data.loc || "";
+      formInline.image = part.data.image || "";
+    } else if (part instanceof go.Link) {
+      console.log("Link clicked:", part.data);
+      formInline.key = part.data.key || ""; // 如果链接有唯一 key
+      formInline.type = "Link";
+      formInline.name = part.data.text || ""; // 主要更新链接上的文字
+      formInline.from = part.data.from || ""; // 主要更新链接上的文字
+      formInline.to = part.data.to || ""; // 主要更新链接上的文字
+    } else if (part instanceof go.Group) {
+      console.log("Group clicked:", part.data);
+      formInline.key = part.data.key || "";
+      formInline.type = "Group";
+      formInline.name = part.data.text || ""; // 主要更新组的文字
+      formInline.loc = part.data.loc || ""; // 如果组有位置
+    } else {
+      console.warn("Unknown part type clicked:", part);
+    }
+
+    console.log("Updated formInline:", formInline);
+    // 聚焦到 name 输入框
+    if (nameInput.value) {
+      nameInput.value.focus();
+    }
   });
 });
 
@@ -228,82 +255,175 @@ function save() {
 function load() {
   if (!myDiagram) return;
   const json = document.getElementById("modelJson");
-  if (json && json.textContent &&  json.textContent.trim()) {
+  if (json && json.textContent && json.textContent.trim()) {
     myDiagram.model = go.Model.fromJson(json.textContent);
   }
 }
 
-const formInline = reactive({
-  user: '',
-  region: '',
-  date: '',
-})
-
-const onSubmit = () => {
-  console.log('submit!')
+function zoomIn() {
+  if (myDiagram) myDiagram.scale *= 1.1;
 }
+
+function zoomOut() {
+  if (myDiagram) myDiagram.scale /= 1.1;
+}
+
+function resetZoom() {
+  if (myDiagram) myDiagram.scale = 1;
+}
+
+const formInline = reactive({
+  key: "",
+  type: "",
+  image: "",
+  loc: "",
+  from: "",
+  to: "",
+});
+
+const clearForm = () => {
+  formInline.key = "";
+  formInline.type = "";
+  formInline.image = "";
+  formInline.loc = "";
+  formInline.from = "";
+  formInline.to = "";
+  formInline.name = "";
+};
+
+const updateNode = () => {
+  if (!myDiagram) {
+    console.error("Diagram is not initialized.");
+    return;
+  }
+
+  const key = formInline.key;
+  const type = formInline.type;
+
+  myDiagram.startTransaction("update object");
+
+  if (type === "Link") {
+    // 更新链接数据：移除后重新添加
+    const selectedLink = myDiagram.selection.first();
+    if (selectedLink instanceof go.Link && selectedLink.data) {
+      const linkData = selectedLink.data;
+
+      // 移除链接
+      myDiagram.model.removeLinkData(linkData);
+
+      // 新增链接，更新文字等信息
+      myDiagram.model.addLinkData({
+        ...linkData,
+        text: formInline.name, // 更新文字
+      });
+
+      console.log(
+        "Link updated: Removed and re-added with new data:",
+        linkData
+      );
+    } else {
+      console.error("No link selected or invalid selection.");
+    }
+  } else if (type === "Group") {
+    if (!key) {
+      console.error("No object selected to update.");
+      return;
+    }
+    // 更新组数据
+    const group = myDiagram.findNodeForKey(key);
+    if (group && group.data && group.isGroup) {
+      myDiagram.model.setDataProperty(group.data, "text", formInline.name);
+      console.log("Group updated:", group.data);
+    } else {
+      console.error("Group not found for the given key:", key);
+    }
+  } else {
+    if (!key) {
+      console.error("No object selected to update.");
+      return;
+    }
+    // 默认更新节点数据
+    const node = myDiagram.findNodeForKey(key);
+    if (node && node.data) {
+      myDiagram.model.setDataProperty(node.data, "text", formInline.name);
+      myDiagram.model.setDataProperty(node.data, "image", formInline.image);
+      console.log("Node updated:", node.data);
+    } else {
+      console.error("Node not found for the given key:", key);
+    }
+  }
+
+  myDiagram.commitTransaction("update object");
+
+  // 清空表单
+  clearForm();
+};
 </script>
 
 <template>
-  <div id="networkDiagram">
-    <div id="allSampleContent" class="p-4 w-full">
-      <div id="sample">
-        <div style="width: 100%; display: flex; justify-content: space-between; margin-bottom: 10px;">
-          <el-button-group class="ml-4">
-            <el-button type="primary" :icon="Monitor"  @click="addNode('PC')">Add PC</el-button>
-            <el-button type="primary" :icon="MostlyCloudy" @click="addNode('Cloud')">Add Cloud</el-button>
-            <el-button type="primary" :icon="Aim" @click="addNode('Firewall')" >Add Firewall</el-button>
-            <el-button type="primary" :icon="Switch" @click="addNode('Switch')" >Add Switch</el-button>
-            <el-button type="primary" :icon="Cpu" @click="addNode('Server')" >Add Server</el-button>
-          </el-button-group>
-        </div>
-        <div style="display: flex; justify-content: space-between">
-          <div
-            ref="diagramDiv"
-            style="border: solid 1px black; flex-grow: 1; height: 450px; margin-right: 20px;"
-          ></div>
-          <div
-            id="inspectorDivId"
-            ref="inspectorDiv"
-            class="inspector"
-            style="width: 250px; border: solid 1px black; height: 450px"
-          ></div>
-        </div>
-        <button @click="save">Save</button>
-        <button @click="load">Load</button>
-        <p>Diagram Model saved in JSON format:</p>
-        <pre class="lang-js" style="max-height: 600px">
+  <div class="common-layout">
+    <el-container>
+      <el-header>Network Diagram</el-header>
+      <el-container>
+        <el-aside width="250px">
+          <div class="control-panel">
+            <el-form :inline="false" :model="formInline" class="demo-form-inline">
+              <el-form-item v-if="false" label="Key">
+                <el-input v-model="formInline.key" disabled />
+              </el-form-item>
+              <el-form-item v-if="false" label="Type">
+                <el-input v-model="formInline.type" disabled />
+              </el-form-item>
+              <el-form-item v-if="false" label="From">
+                <el-input v-model="formInline.from" disabled />
+              </el-form-item>
+              <el-form-item v-if="false" label="To">
+                <el-input v-model="formInline.to" disabled />
+              </el-form-item>
+              <el-form-item label="Name">
+                <el-input v-model="formInline.name" placeholder="Please enter name" ref="nameInput" @blur="updateNode"
+                  clearable />
+              </el-form-item>
+              <el-form-item label="Image list" v-if="formInline.type === 'PC'">
+                <el-select v-model="formInline.image" placeholder="Select image" clearable>
+                  <el-option label="Zone one" value="shanghai" />
+                  <el-option label="Zone two" value="beijing" />
+                </el-select>
+              </el-form-item>
+              <el-form-item>
+                <el-button type="primary" @click="updateNode">Save</el-button>
+              </el-form-item>
+            </el-form>
+          </div>
+        </el-aside>
+        <el-container>
+          <el-main>
+            <el-button-group>
+              <el-button type="primary" :icon="Monitor" @click="addNode('PC')">Add PC</el-button>
+              <el-button type="primary" :icon="MostlyCloudy" @click="addNode('Cloud')">Add Cloud</el-button>
+              <el-button type="primary" :icon="Aim" @click="addNode('Firewall')">Add Firewall</el-button>
+              <el-button type="primary" :icon="Switch" @click="addNode('Switch')">Add Switch</el-button>
+              <el-button type="primary" :icon="Cpu" @click="addNode('Server')">Add Server</el-button></el-button-group>
+            <el-button-group class="ml-4">
+              <el-button type="primary" :icon="ZoomIn" @click="zoomIn()"></el-button>
+              <el-button type="primary" :icon="RefreshRight" @click="resetZoom()"></el-button>
+              <el-button type="primary" :icon="ZoomOut" @click="zoomOut()"></el-button></el-button-group>
+            <el-button-group class="ml-4">
+              <el-button type="primary" @click="save()">Save</el-button>
+              <el-button type="primary" @click="load()">Load</el-button>
+            </el-button-group>
+            <div ref="diagramDiv" class="diagram-container"></div>
+          </el-main>
+          <el-footer>
+            <p>Diagram Model saved in JSON format:</p>
+            <pre class="lang-js" style="max-height: 600px">
           <code id="modelJson"></code>
         </pre>
-      </div>
-    </div>
+          </el-footer>
+        </el-container>
+      </el-container>
+    </el-container>
   </div>
-  <el-form :inline="true" :model="formInline" class="demo-form-inline">
-    <el-form-item label="Approved by">
-      <el-input v-model="formInline.user" placeholder="Approved by" clearable />
-    </el-form-item>
-    <el-form-item label="Activity zone">
-      <el-select
-        v-model="formInline.region"
-        placeholder="Activity zone"
-        clearable
-      >
-        <el-option label="Zone one" value="shanghai" />
-        <el-option label="Zone two" value="beijing" />
-      </el-select>
-    </el-form-item>
-    <el-form-item label="Activity time">
-      <el-date-picker
-        v-model="formInline.date"
-        type="date"
-        placeholder="Pick a date"
-        clearable
-      />
-    </el-form-item>
-    <el-form-item>
-      <el-button type="primary" @click="onSubmit">Query</el-button>
-    </el-form-item>
-  </el-form>
 </template>
 
 <style>
@@ -313,5 +433,21 @@ const onSubmit = () => {
 
 .demo-form-inline .el-select {
   --el-select-width: 220px;
+}
+
+.control-panel {
+  margin: 20px;
+}
+
+.ml-4 {
+  margin-left: 4rem;
+}
+
+.diagram-container {
+  flex-grow: 1;
+  height: 450px;
+  margin-right: 20px;
+  border: 3px #aaa solid;
+  margin-top: 10px;
 }
 </style>
