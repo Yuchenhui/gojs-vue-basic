@@ -2,9 +2,9 @@
 <html lang="en">
 
 <body>
-    <script src="node_modules/gojs/release/go.js"></script>
+    <script src="../../node_modules/gojs/release/go.js"></script>
     <link href="node_modules/prismjs/themes/prism.css" rel="stylesheet" />
-    <script src="node_modules/prismjs/prism.js"></script>
+    <script src="../../node_modules/prismjs/prism.js"></script>
     <div id="allSampleContent" class="p-4 w-full">
         <div id="sample">
             <div style="width: 100%; display: flex; justify-content: space-between">
@@ -91,7 +91,7 @@
                             fromLinkable: true,
                             toLinkable: true,
                             cursor: 'pointer'
-                        }).bind('source', 'type', (t) => `public/images/${t.toLowerCase()}.svg`),
+                        }).bind('source', 'type', (t) => `../images/${t.toLowerCase()}.svg`),
                         new go.Shape({
                             width: 25,
                             height: 25,

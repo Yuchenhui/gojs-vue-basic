@@ -1,12 +1,15 @@
-<script setup>
-import { ref, onMounted } from "vue";
+<script setup lang="ts">
+import { ref, onMounted ,reactive } from "vue";
 import * as go from "gojs";
 import { Inspector } from "create-gojs-kit/dist/extensionsJSM/DataInspector.js";
+import {
+  Cpu,MostlyCloudy,Switch,Aim,Monitor
+} from '@element-plus/icons-vue'
 
-const diagramDiv = ref(null);
-const inspectorDiv = ref(null);
+const diagramDiv = ref<HTMLDivElement | null>(null);
+const inspectorDiv = ref<HTMLDivElement | null>(null);
 
-let myDiagram = null;
+let myDiagram: go.Diagram | null = null;
 
 onMounted(() => {
   console.log("init.network-lite");
@@ -56,11 +59,7 @@ onMounted(() => {
           toLinkable: true,
           cursor: "pointer",
         },
-        new go.Binding(
-          "source",
-          "type",
-          (t) => `/images/${t.toLowerCase()}.svg`
-        )
+        new go.Binding("source", "type", (t: string) => `/images/${t.toLowerCase()}.svg`)
       ),
       $(go.Shape, {
         width: 50,
@@ -159,22 +158,22 @@ onMounted(() => {
     )
   );
 
-  // console.log("init.network-lite")
-
   // 初始化 Inspector
-  const myInspector = new Inspector(inspectorDiv.value.id, myDiagram, {
+  new Inspector(inspectorDiv.value.id, myDiagram, {
     properties: {
-      text: {},
-      key: { readOnly: true, show: Inspector.showIfPresent },
+      text: {
+        name: "名称",
+      },
+      key: { readOnly: true, show: false },
       dropdown1: {
         name: "操作系统",
-        show: (data) => data.type === "PC",
+        show: (data) => data.data.type === "PC",
         type: "select",
         choices: ["Ubuntu", "CentOS"],
       },
       dropdown2: {
         name: "路由",
-        show: (data) => data.type === "Switch",
+        show: (data) => data.data.type === "Switch",
         type: "select",
         choices: ["Route-1", "Route-2"],
       },
@@ -183,23 +182,26 @@ onMounted(() => {
     },
   });
 
-
   // 显示网格与对齐
   myDiagram.grid.visible = true;
   myDiagram.toolManager.draggingTool.isGridSnapEnabled = true;
-  
+
   // 加载初始模型
   load();
+
+  myDiagram.addDiagramListener("ObjectSingleClicked", (e: go.DiagramEvent) => {
+    const part = e.subject.part;
+    console.log("ObjectSingleClicked", e, part?.data);
+  });
 });
 
 // 添加节点方法
-function addNode(type) {
+function addNode(type: string) {
   console.log("Adding node:", type);
   if (!myDiagram) {
     console.error("Diagram is not initialized.");
     return;
   }
-  console.log(myDiagram.model)
   myDiagram.startTransaction("add node");
   const existingNodes = myDiagram.model.nodeDataArray.length;
   const x = (existingNodes % 5) * 150;
@@ -214,17 +216,31 @@ function addNode(type) {
 
 // 保存模型
 function save() {
+  if (!myDiagram) return;
   const json = document.getElementById("modelJson");
-  json.innerHTML = myDiagram.model.toJson();
+  if (json) {
+    json.textContent = myDiagram.model.toJson();
+  }
   myDiagram.isModified = false;
 }
 
 // 加载模型
 function load() {
+  if (!myDiagram) return;
   const json = document.getElementById("modelJson");
-  if (json.textContent.trim()) {
+  if (json && json.textContent &&  json.textContent.trim()) {
     myDiagram.model = go.Model.fromJson(json.textContent);
   }
+}
+
+const formInline = reactive({
+  user: '',
+  region: '',
+  date: '',
+})
+
+const onSubmit = () => {
+  console.log('submit!')
 }
 </script>
 
@@ -232,36 +248,20 @@ function load() {
   <div id="networkDiagram">
     <div id="allSampleContent" class="p-4 w-full">
       <div id="sample">
-        <!-- 按钮区域 -->
-        <div
-          style="
-            width: 100%;
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-          "
-        >
-          <button @click="addNode('Cloud')">Add Cloud</button>
-          <button @click="addNode('Firewall')">Add Firewall</button>
-          <button @click="addNode('Switch')">Add Switch</button>
-          <button @click="addNode('Server')">Add Server</button>
-          <button @click="addNode('PC')">Add PC</button>
+        <div style="width: 100%; display: flex; justify-content: space-between; margin-bottom: 10px;">
+          <el-button-group class="ml-4">
+            <el-button type="primary" :icon="Monitor"  @click="addNode('PC')">Add PC</el-button>
+            <el-button type="primary" :icon="MostlyCloudy" @click="addNode('Cloud')">Add Cloud</el-button>
+            <el-button type="primary" :icon="Aim" @click="addNode('Firewall')" >Add Firewall</el-button>
+            <el-button type="primary" :icon="Switch" @click="addNode('Switch')" >Add Switch</el-button>
+            <el-button type="primary" :icon="Cpu" @click="addNode('Server')" >Add Server</el-button>
+          </el-button-group>
         </div>
-
-        <!-- 主体布局 -->
         <div style="display: flex; justify-content: space-between">
-          <!-- Diagram 区域 -->
           <div
             ref="diagramDiv"
-            style="
-              border: solid 1px black;
-              flex-grow: 1;
-              height: 450px;
-              margin-right: 20px;
-            "
+            style="border: solid 1px black; flex-grow: 1; height: 450px; margin-right: 20px;"
           ></div>
-
-          <!-- Inspector 区域 -->
           <div
             id="inspectorDivId"
             ref="inspectorDiv"
@@ -269,8 +269,6 @@ function load() {
             style="width: 250px; border: solid 1px black; height: 450px"
           ></div>
         </div>
-
-        <!-- 保存与加载 -->
         <button @click="save">Save</button>
         <button @click="load">Load</button>
         <p>Diagram Model saved in JSON format:</p>
@@ -280,4 +278,40 @@ function load() {
       </div>
     </div>
   </div>
+  <el-form :inline="true" :model="formInline" class="demo-form-inline">
+    <el-form-item label="Approved by">
+      <el-input v-model="formInline.user" placeholder="Approved by" clearable />
+    </el-form-item>
+    <el-form-item label="Activity zone">
+      <el-select
+        v-model="formInline.region"
+        placeholder="Activity zone"
+        clearable
+      >
+        <el-option label="Zone one" value="shanghai" />
+        <el-option label="Zone two" value="beijing" />
+      </el-select>
+    </el-form-item>
+    <el-form-item label="Activity time">
+      <el-date-picker
+        v-model="formInline.date"
+        type="date"
+        placeholder="Pick a date"
+        clearable
+      />
+    </el-form-item>
+    <el-form-item>
+      <el-button type="primary" @click="onSubmit">Query</el-button>
+    </el-form-item>
+  </el-form>
 </template>
+
+<style>
+.demo-form-inline .el-input {
+  --el-input-width: 220px;
+}
+
+.demo-form-inline .el-select {
+  --el-select-width: 220px;
+}
+</style>
