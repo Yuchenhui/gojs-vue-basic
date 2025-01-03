@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import NetWork from "./components/network-diagram.vue";
+import NetWork from "./components/network-diagram-port.vue";
 </script>
 
 <template>

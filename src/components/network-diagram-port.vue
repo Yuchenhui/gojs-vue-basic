@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, reactive } from "vue";
 import * as go from "gojs";
+import { AvoidsLinksRouter } from 'create-gojs-kit/dist/extensionsJSM/AvoidsLinksRouter';
 import {
   Cpu,
   MostlyCloudy,
@@ -18,6 +19,7 @@ let myDiagram: go.Diagram | null = null;
 
 onMounted(() => {
   console.log(diagramDiv);
+  let currentNodeKey: string | null = null; // 当前选择的节点的key
   if (!diagramDiv.value) {
     console.error("Diagram or Inspector container is missing.");
     return;
@@ -37,6 +39,8 @@ onMounted(() => {
     //   isOngoing: false,
     // }),
   });
+
+  // myDiagram.routers.add(new AvoidsLinksRouter()); // 避免节点间的链接
 
   // 设置节点模板
   myDiagram.nodeTemplate = $(
@@ -189,9 +193,13 @@ onMounted(() => {
   myDiagram.addDiagramListener("BackgroundSingleClicked", () => {
     clearForm(); // 执行清空表单
   });
+
   myDiagram.addDiagramListener("ObjectSingleClicked", (e: go.DiagramEvent) => {
     const part = e.subject.part;
-
+    if (part instanceof go.Node) {
+      currentNodeKey = part.data.key; // 保存当前节点的key
+      console.log("Node clicked:", currentNodeKey);
+    }
     if (!part || !part.data) {
       console.warn("Clicked on an empty part or background.");
 
